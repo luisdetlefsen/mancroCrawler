@@ -9,7 +9,11 @@ import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlOption;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlSelect;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,11 +21,11 @@ import java.util.List;
  *
  * @author luisdetlefsen
  */
-public class MancroCrawlerHU {
+class MancroCrawlerHU {
+     
+    protected enum ZONES {
 
-    private enum ZONES {
-
-        ONE("01"), TWO("02"), THREE("03"), FOUR("04"), FIVE("05"), SIX("06"), SEVEN("07"), EIGHT("08"), NINE("09"), TEN("10");
+        ONE("01"), TWO("02"), THREE("03"), FOUR("04"), FIVE("05"), SIX("06"), SEVEN("07"), EIGHT("08"), NINE("09"), TEN("10"), ELEVEN("11"), TWELVE("12"), THIRTEEN("13"), FOURTEEN("14"), FIFTEEN("15"), SIXTEEN("16"), SEVENTEEN("17"), EIGHTEEN("18"), TWENTYONE("21");
 
         private String zone;
 
@@ -36,7 +40,7 @@ public class MancroCrawlerHU {
 
     }
 
-    private enum DEPARTMENTS {
+    protected enum DEPARTMENTS {
 
         GUATEMALA("guatemala");
 
@@ -53,7 +57,7 @@ public class MancroCrawlerHU {
 
     }
 
-    private enum TOWNS {
+    protected enum TOWNS {
 
         GUATEMALA("guatemala");
 
@@ -69,7 +73,7 @@ public class MancroCrawlerHU {
         }
     }
 
-    private enum ASSETS {
+    protected enum ASSETS {
 
         CASAS("casas"),
         APARTEMENTOS("apartamentos");
@@ -86,7 +90,7 @@ public class MancroCrawlerHU {
         }
     }
 
-    private enum CONDITIONS {
+    protected enum CONDITIONS {
 
         VENTA("venta"), ALQUILER("alquiler");
 
@@ -111,12 +115,30 @@ public class MancroCrawlerHU {
         return page.querySelectorAll("div#title a[href]");
     }
 
+    private String getPropertyField(HtmlPage page, String selector) {
+        DomNode node = page.querySelector(selector);
+        if (node == null)
+            return "";
+        return node.asText();
+    }
+
     //TODO: get all details
     private Property getPropertyDetails(HtmlPage page) {
-        DomNode price = page.querySelector("span#MasterMC_ContentBlockHolder_lblOp1 span");
 
         Property property = new Property();
-        property.setPrice(price.asText());
+        property.setPriceSell(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp1 span"));
+        property.setDescription(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblProse"));
+        property.setMancroId(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblCode"));
+        property.setLastEdit(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblAdMod"));
+        property.setVisits(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblCount3"));
+        property.setPriceRent(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp2 span"));
+        property.setRooms(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblBed"));
+        property.setBathrooms(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblBath"));
+        property.setTerrain(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblLA span"));
+        property.setConstruction(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblCA span"));
+        property.setParking(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblPark"));
+        property.setNewOrUsed(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblNew"));
+        property.setAddress(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblAdrProp"));
 
         return property;
     }
@@ -125,9 +147,9 @@ public class MancroCrawlerHU {
         List<Property> properties = new ArrayList<>();
 
         DomNode nextPage;
-        int c = 0;
+        //int c = 0;
         do {
-            c++;
+            //c++;
             DomNodeList<DomNode> propertiesLinks = getPropertiesLinks(page);
             for (DomNode node : propertiesLinks) {
                 HtmlPage propertyPage = ((HtmlAnchor) node).click();
@@ -139,7 +161,7 @@ public class MancroCrawlerHU {
             nextPage = getNextPage(page);
             if (nextPage != null)
                 page = ((HtmlAnchor) nextPage).click(); // System.out.println(page.asText());
-        } while (page != null && nextPage != null && c < 3);
+        } while (page != null && nextPage != null);
 
         return properties;
     }
@@ -161,16 +183,39 @@ public class MancroCrawlerHU {
         }
     }
 
+    public void crawlCategory(final String url, final String outputFilePath, final ZONES zone, final ASSETS asset, final CONDITIONS condition) {
+        final List<Property> properties = getPropertiesByCategory(url);
+
+        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
+            writer.write(Property.getHeadersCSV());
+            writer.newLine();
+            for (Property p : properties) {
+                p.setZone(zone);
+                p.setAsset(asset);
+                p.setCondition(condition);
+                
+                writer.write(p.toCsvLine());
+                writer.newLine();
+            }
+            
+        } catch (Exception e) {
+            System.err.println(e);
+        }
+
+    }
+
     public void crawl() {
-        String baseUrl = "http://mancro.com/";
-        String url = baseUrl + ASSETS.CASAS.toString() + "-en-" + CONDITIONS.ALQUILER + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + ZONES.TEN;
+        final String baseUrl = "http://mancro.com/";
 
-        List<Property> properties;
-
-        properties = getPropertiesByCategory(url);
-        for (Property p : properties)
-            System.out.println("Price: " + p.getPrice());
-
+        //String url = baseUrl + ASSETS.CASAS.toString() + "-en-" + CONDITIONS.ALQUILER + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + ZONES.TEN;
+        for (ASSETS asset : ASSETS.values())
+            for (CONDITIONS condition : CONDITIONS.values())
+                for (ZONES zone : ZONES.values()) {
+                    final String url = baseUrl + asset + "-en-" + condition + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + zone;
+                    final String outputFilePath = "D:\\mancro\\";
+                    final String fileName = asset + "_" + condition + "_" + zone + ".csv";
+                    crawlCategory(url, outputFilePath + fileName, zone, asset, condition);
+                }
     }
 
     /**
