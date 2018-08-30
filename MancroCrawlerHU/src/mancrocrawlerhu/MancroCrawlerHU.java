@@ -4,25 +4,24 @@ import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.DomNode;
 import com.gargoylesoftware.htmlunit.html.DomNodeList;
 import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
-import com.gargoylesoftware.htmlunit.html.HtmlButton;
-import com.gargoylesoftware.htmlunit.html.HtmlElement;
-import com.gargoylesoftware.htmlunit.html.HtmlOption;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.gargoylesoftware.htmlunit.html.HtmlSelect;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 
 /**
  *
  * @author luisdetlefsen
  */
 class MancroCrawlerHU {
-     
+    
+    
+     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("Test");
     protected enum ZONES {
 
         ONE("01"), TWO("02"), THREE("03"), FOUR("04"), FIVE("05"), SIX("06"), SEVEN("07"), EIGHT("08"), NINE("09"), TEN("10"), ELEVEN("11"), TWELVE("12"), THIRTEEN("13"), FOURTEEN("14"), FIFTEEN("15"), SIXTEEN("16"), SEVENTEEN("17"), EIGHTEEN("18"), TWENTYONE("21");
@@ -144,23 +143,25 @@ class MancroCrawlerHU {
     }
 
     private List<Property> getAllProperties(HtmlPage page) throws IOException {
-        List<Property> properties = new ArrayList<>();
+        final List<Property> properties = new ArrayList<>();
 
         DomNode nextPage;
-        //int c = 0;
+        int c = 1;
         do {
+            log.info("Page " + c);
             //c++;
-            DomNodeList<DomNode> propertiesLinks = getPropertiesLinks(page);
+            final DomNodeList<DomNode> propertiesLinks = getPropertiesLinks(page);
             for (DomNode node : propertiesLinks) {
                 HtmlPage propertyPage = ((HtmlAnchor) node).click();
-
                 Property property = getPropertyDetails(propertyPage);
                 properties.add(property);
+                break;
             }
 
             nextPage = getNextPage(page);
             if (nextPage != null)
                 page = ((HtmlAnchor) nextPage).click(); // System.out.println(page.asText());
+            c++;
         } while (page != null && nextPage != null);
 
         return properties;
@@ -184,8 +185,10 @@ class MancroCrawlerHU {
     }
 
     public void crawlCategory(final String url, final String outputFilePath, final ZONES zone, final ASSETS asset, final CONDITIONS condition) {
+        log.info("Visiting " + url);
         final List<Property> properties = getPropertiesByCategory(url);
 
+        log.info("Retrieved " + properties.size() + " properties from " + url);
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
             writer.write(Property.getHeadersCSV());
             writer.newLine();
@@ -200,6 +203,7 @@ class MancroCrawlerHU {
             
         } catch (Exception e) {
             System.err.println(e);
+            log.error(e.getMessage());
         }
 
     }
@@ -222,9 +226,12 @@ class MancroCrawlerHU {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        log.info("Starting");
+      
         MancroCrawlerHU crawler = new MancroCrawlerHU();
 
         crawler.crawl();
+        log.info("Completed");
     }
 
 }
