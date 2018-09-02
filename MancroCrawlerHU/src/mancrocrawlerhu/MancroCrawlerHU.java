@@ -1,5 +1,7 @@
 package mancrocrawlerhu;
 
+import com.gargoylesoftware.htmlunit.BrowserVersion;
+import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.DomNode;
 import com.gargoylesoftware.htmlunit.html.DomNodeList;
@@ -19,9 +21,14 @@ import org.apache.logging.log4j.core.Logger;
  * @author luisdetlefsen
  */
 class MancroCrawlerHU {
-    
-    
-     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("Test");
+
+    private WebClient webClient;
+    HtmlPage wholePage;
+    String rootUrl;
+    boolean applyFix = false;
+    int fixCount = 0;
+    private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("Test");
+
     protected enum ZONES {
 
         ONE("01"), TWO("02"), THREE("03"), FOUR("04"), FIVE("05"), SIX("06"), SEVEN("07"), EIGHT("08"), NINE("09"), TEN("10"), ELEVEN("11"), TWELVE("12"), THIRTEEN("13"), FOURTEEN("14"), FIFTEEN("15"), SIXTEEN("16"), SEVENTEEN("17"), EIGHTEEN("18"), TWENTYONE("21");
@@ -105,8 +112,12 @@ class MancroCrawlerHU {
         }
 
     }
+    
+    private Integer getCurrentPage(HtmlPage page){
+        return Integer.valueOf(page.querySelector("div#MasterMC_ContentBlockHolder_grdpropspagination a[disabled]").asText());
+    }
 
-    private DomNode getNextPage(HtmlPage page) {
+    private HtmlAnchor getNextPageLink(HtmlPage page) {
         return page.querySelector("div#MasterMC_ContentBlockHolder_grdpropspagination a[disabled] + a");
     }
 
@@ -145,35 +156,77 @@ class MancroCrawlerHU {
     private List<Property> getAllProperties(HtmlPage page) throws IOException {
         final List<Property> properties = new ArrayList<>();
 
-        DomNode nextPage;
+        applyFix = false;
+        fixCount = 0;
+        log.info("-------------------------------");
+        HtmlAnchor nextPageAnchor;
         int c = 1;
         do {
+            if(c != getCurrentPage(page)){
+                log.error("Error while visiting " +rootUrl);
+                log.error("Error: Expected page " + page + " but got " + c);
+                break;
+            }
             log.info("Page " + c);
             //c++;
             final DomNodeList<DomNode> propertiesLinks = getPropertiesLinks(page);
+            int j = 1;
             for (DomNode node : propertiesLinks) {
+                log.info("Visiting property #" + (j + ((c - 1) * 25)) + ": " + ((HtmlAnchor) node).asText());
                 HtmlPage propertyPage = ((HtmlAnchor) node).click();
                 Property property = getPropertyDetails(propertyPage);
                 properties.add(property);
+                j++;
+               // break;
+            }
+
+            nextPageAnchor = getNextPageLink(page);
+            //log.info("Next page: "+ nextPage.asText());            
+            if (nextPageAnchor != null) //page = ((HtmlAnchor) nextPage) .click(); // System.out.println(page.asText());{
+            {
+                log.info("Retrieving next page: " + nextPageAnchor.asText());
+                wholePage = webClient.getPage(rootUrl);
+                if (applyFix || nextPageAnchor.asText().equals("...")) {
+                    wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
+                    page = (HtmlPage) page.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
+                    applyFix = true;
+
+                    if (fixCount != 0){
+                        log.info("Fix: "+ "javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl0" + (fixCount + 1) + "$ctl00','')") ;
+                        
+                        page = (HtmlPage) page.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl0" + (fixCount + 1) + "$ctl00','')").getNewPage();
+                    }
+                        
+//page = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl0" + (fixCount + 1) + "$ctl00','')").getNewPage();
+                    fixCount++;
+                } else
+                    page = nextPageAnchor.click();
+            } else {
+                log.info("~~~~~~~~~~~~~~Completed~~~~~~~~~~~~");
                 break;
             }
 
-            nextPage = getNextPage(page);
-            if (nextPage != null)
-                page = ((HtmlAnchor) nextPage).click(); // System.out.println(page.asText());
             c++;
-        } while (page != null && nextPage != null);
+        } while (page != null);
 
         return properties;
     }
 
     private List<Property> getPropertiesByCategory(final String url) {
-        try (final WebClient webClient = new WebClient()) {
+        webClient = new WebClient(BrowserVersion.FIREFOX_60);
+        try {
+            webClient.getOptions().setTimeout(120000);
+            webClient.waitForBackgroundJavaScript(60000);
+            webClient.getOptions().setRedirectEnabled(true);
+            webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
+            webClient.getOptions().setUseInsecureSSL(true);
             webClient.getOptions().setThrowExceptionOnScriptError(false);
             webClient.getOptions().setJavaScriptEnabled(true);
             webClient.getOptions().setCssEnabled(false);
+            webClient.setAjaxController(new NicelyResynchronizingAjaxController());
 
-            HtmlPage wholePage = webClient.getPage(url);
+            wholePage = webClient.getPage(url);
+            rootUrl = url;
 
             List<Property> properties = getAllProperties(wholePage);
 
@@ -181,6 +234,9 @@ class MancroCrawlerHU {
         } catch (Exception e) {
             System.err.println(e);
             return null;
+        } finally {
+            webClient.close();
+
         }
     }
 
@@ -196,11 +252,11 @@ class MancroCrawlerHU {
                 p.setZone(zone);
                 p.setAsset(asset);
                 p.setCondition(condition);
-                
+
                 writer.write(p.toCsvLine());
                 writer.newLine();
             }
-            
+
         } catch (Exception e) {
             System.err.println(e);
             log.error(e.getMessage());
@@ -227,7 +283,7 @@ class MancroCrawlerHU {
      */
     public static void main(String[] args) {
         log.info("Starting");
-      
+
         MancroCrawlerHU crawler = new MancroCrawlerHU();
 
         crawler.crawl();
