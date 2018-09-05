@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -22,11 +23,7 @@ import org.apache.logging.log4j.core.Logger;
  */
 class MancroCrawlerHU {
 
-    private WebClient webClient;
-    HtmlPage wholePage;
-    String rootUrl;
-    boolean applyFix = false;
-    int fixCount = 0;
+    boolean debug = true;
     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("WebScraper");
 
     protected enum ZONES {
@@ -127,8 +124,9 @@ class MancroCrawlerHU {
 
     private String getPropertyField(HtmlPage page, String selector) {
         DomNode node = page.querySelector(selector);
-        if (node == null)
+        if (node == null) {
             return "";
+        }
         return node.asText();
     }
 
@@ -153,65 +151,88 @@ class MancroCrawlerHU {
         return property;
     }
 
-    private List<Property> getAllProperties(String url) throws IOException {
-        webClient = getNewWebClient();
-        wholePage = webClient.getPage(url);
+    private List<Property> getAllProperties(final String url) throws IOException {
+        WebClient webClient = getNewWebClient();
+        HtmlPage wholePage = webClient.getPage(url);
         final List<Property> properties = new ArrayList<>();
 
-        applyFix = false;
-        fixCount = 0;
         log.info("-------------------------------");
         HtmlAnchor nextPageAnchor;
         int c = 1;
         do {
             if (c != getCurrentPage(wholePage)) {
-                log.error("Error while visiting " + rootUrl);
+                log.error("Error while visiting " + url);
                 log.error("Error: Expected page " + c + " but got " + getCurrentPage(wholePage));
                 break;
             }
-            log.info("Page " + c);
+            log.info("Current page " + c);
             //c++;
             final DomNodeList<DomNode> propertiesLinks = getPropertiesLinks(wholePage);
             int j = 1;
             for (DomNode node : propertiesLinks) {
                 log.info("Visiting property #" + (j + ((c - 1) * 25)) + ": " + ((HtmlAnchor) node).asText());
-
+                if (debug) {
+                    break;
+                }
                 HtmlPage propertyPage = ((HtmlAnchor) node).click();
                 Property property = getPropertyDetails(propertyPage);
                 properties.add(property);
                 j++;
-                //    break;
             }
 
+            //start retrieving the next page
             nextPageAnchor = getNextPageLink(wholePage);
 
             if (nextPageAnchor != null) //page = ((HtmlAnchor) nextPage) .click(); // System.out.println(page.asText());{
             {
-                String href = nextPageAnchor.getHrefAttribute();
-                //log.info("Next page: "+ nextPage.asText());       
                 webClient.close();
                 webClient = getNewWebClient();
                 log.info("Retrieving next page: " + nextPageAnchor.asText());
-                wholePage = webClient.getPage(rootUrl);
+                wholePage = webClient.getPage(url);
 
-                if (applyFix || nextPageAnchor.asText().equals("...")) {
-                    wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
-                    //     page = (HtmlPage) page.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
-                    applyFix = true;
-
-                    if (fixCount != 0) {
-                        log.info("Fix: " + "javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl0" + (fixCount + 1) + "$ctl00','')");
-
-                        wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl0" + (fixCount + 1) + "$ctl00','')").getNewPage();
+                String nextPageLink = "javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl%s$ctl00','')";
+                if (c < 10) {
+                    nextPageLink = String.format(nextPageLink, "0" + (c));
+                } else if (c == 10) {
+                    nextPageLink = String.format(nextPageLink, "10");
+                } else if (c > 10) {
+                    int residue = (c + 1) % 10;
+                    switch (residue) {
+                        case 0:
+                            nextPageLink = String.format(nextPageLink, "10");
+                            break;
+                        case 1:
+                            nextPageLink = String.format(nextPageLink, "11");
+                            break;
+                        default:
+                            nextPageLink = String.format(nextPageLink, "0" + (residue));
                     }
+                }
+                log.info("Next page link: " + nextPageLink);
+                if (c <= 10) {
+                    wholePage = (HtmlPage) wholePage.executeJavaScript(nextPageLink).getNewPage();
+                } else if (c >= 11 && c <= 20) {
+                    wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
+                    wholePage = (HtmlPage) wholePage.executeJavaScript(nextPageLink).getNewPage();
 
-//page = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl0" + (fixCount + 1) + "$ctl00','')").getNewPage();
-                    fixCount++;
-                } else
-                    wholePage = (HtmlPage) wholePage.executeJavaScript(href).getNewPage();
+                } else {
+                    wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
+                    int bound = 0;
+                    if (c > 30) {
+                        bound = c / 10;
+                    } else {
+                        bound = c / 20;
+                    }
+                    for (int i = 0; i < bound; i++) {
+                        wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl11$ctl00','')").getNewPage();
+                    }
+                    wholePage = (HtmlPage) wholePage.executeJavaScript(nextPageLink).getNewPage();
+                }
+
             } else {
-                if (webClient != null)
+                if (webClient != null) {
                     webClient.close();
+                }
                 log.info("~~~~~~~~~~~~~~Completed~~~~~~~~~~~~");
                 break;
             }
@@ -238,17 +259,12 @@ class MancroCrawlerHU {
     }
 
     private List<Property> getPropertiesByCategory(final String url) throws Exception {
-        //  webClient = getNewWebClient();
         try {
-            //wholePage = webClient.getPage(url);
-            rootUrl = url;
-
             List<Property> properties = getAllProperties(url);
 
             return properties;
         } catch (Exception e) {
-            log.error(e.getMessage());
-            log.error(e.getStackTrace());
+            log.error("Error: " + e.getMessage());
             throw e;
         } finally {
 
@@ -273,21 +289,46 @@ class MancroCrawlerHU {
             }
 
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error("Error: " + e.getMessage());
         }
 
     }
 
+    final List<ZONES> zonesIgnoreList = new ArrayList<>();
+    final List<ASSETS> assestsIgnoreList = new ArrayList<>();
+    final List<CONDITIONS> conditionsIgnoreList = new ArrayList<>();
+    
+    private void fillIgnoreList(){
+        Collections.addAll(zonesIgnoreList, ZONES.values());
+        zonesIgnoreList.remove(ZONES.TEN);
+        Collections.addAll(assestsIgnoreList, ASSETS.values());
+        assestsIgnoreList.remove(ASSETS.CASAS);
+        Collections.addAll(conditionsIgnoreList, CONDITIONS.values());
+        conditionsIgnoreList.remove(CONDITIONS.ALQUILER);
+    }
+
     public void crawl() {
+        
+        //fillIgnoreList();
         final String baseUrl = "http://mancro.com/";
 
         //String url = baseUrl + ASSETS.CASAS.toString() + "-en-" + CONDITIONS.ALQUILER + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + ZONES.TEN;
-        for (ASSETS asset : ASSETS.values())
-            for (CONDITIONS condition : CONDITIONS.values())
-
+        for (ASSETS asset : ASSETS.values()) {
+            for (CONDITIONS condition : CONDITIONS.values()) {
                 for (ZONES zone : ZONES.values()) {
+                    if (zonesIgnoreList.contains(zone)) {
+                        continue;
+                    }
+                    if (assestsIgnoreList.contains(asset)) {
+                        continue;
+                    }
+                    if (conditionsIgnoreList.contains(condition)) {
+                        continue;
+                    }
+
                     final String url = baseUrl + asset + "-en-" + condition + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + zone;
-                    final String outputFilePath = "D:\\mancro\\";
+//                    final String outputFilePath = "D:\\mancro\\";
+                    final String outputFilePath = "~/";
                     final String fileName = asset + "_" + condition + "_" + zone + ".csv";
                     try {
                         crawlCategory(url, outputFilePath + fileName, zone, asset, condition);
@@ -295,6 +336,8 @@ class MancroCrawlerHU {
                         log.error(e.getMessage());
                     }
                 }
+            }
+        }
     }
 
     /**
