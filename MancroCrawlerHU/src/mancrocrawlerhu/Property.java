@@ -1,8 +1,9 @@
 
 package mancrocrawlerhu;
 
-import mancrocrawlerhu.MancroCrawlerHU.ASSETS;
-import mancrocrawlerhu.MancroCrawlerHU.CONDITIONS;
+import enums.ZONES;
+import enums.ASSETS;
+import enums.CONDITIONS;
 
 /**
  *
@@ -24,7 +25,7 @@ public class Property {
     private String newOrUsed;//
     private String address;//
     
-    private MancroCrawlerHU.ZONES zone;
+    private ZONES zone;
     private ASSETS asset;
     private CONDITIONS condition;
     
@@ -222,14 +223,14 @@ public class Property {
     /**
      * @return the zone
      */
-    public MancroCrawlerHU.ZONES getZone() {
+    public ZONES getZone() {
         return zone;
     }
 
     /**
      * @param zone the zone to set
      */
-    public void setZone(MancroCrawlerHU.ZONES zone) {
+    public void setZone(ZONES zone) {
         this.zone = zone;
     }
 

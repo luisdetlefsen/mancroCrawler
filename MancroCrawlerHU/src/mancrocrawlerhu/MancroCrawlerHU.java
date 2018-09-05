@@ -1,5 +1,10 @@
 package mancrocrawlerhu;
 
+import enums.CONDITIONS;
+import enums.ZONES;
+import enums.TOWNS;
+import enums.DEPARTMENTS;
+import enums.ASSETS;
 import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
 import com.gargoylesoftware.htmlunit.WebClient;
@@ -15,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.Logger;
 
 /**
  *
@@ -23,92 +27,8 @@ import org.apache.logging.log4j.core.Logger;
  */
 class MancroCrawlerHU {
 
-    boolean debug = true;
+    boolean debug = false;
     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("WebScraper");
-
-    protected enum ZONES {
-
-        TWENTYONE("21"), ONE("01"), TWO("02"), THREE("03"), FOUR("04"), FIVE("05"), SIX("06"), SEVEN("07"), EIGHT("08"), NINE("09"), TEN("10"), ELEVEN("11"), TWELVE("12"), THIRTEEN("13"), FOURTEEN("14"), FIFTEEN("15"), SIXTEEN("16"), SEVENTEEN("17"), EIGHTEEN("18");
-
-        private String zone;
-
-        private ZONES(String zoneString) {
-            zone = zoneString;
-        }
-
-        @Override
-        public String toString() {
-            return zone;
-        }
-
-    }
-
-    protected enum DEPARTMENTS {
-
-        GUATEMALA("guatemala");
-
-        private String department;
-
-        private DEPARTMENTS(String dString) {
-            department = dString;
-        }
-
-        @Override
-        public String toString() {
-            return department;
-        }
-
-    }
-
-    protected enum TOWNS {
-
-        GUATEMALA("guatemala");
-
-        private String town;
-
-        private TOWNS(String townString) {
-            town = townString;
-        }
-
-        @Override
-        public String toString() {
-            return town;
-        }
-    }
-
-    protected enum ASSETS {
-
-        CASAS("casas"),
-        APARTEMENTOS("apartamentos");
-
-        private String asset;
-
-        private ASSETS(String aString) {
-            asset = aString;
-        }
-
-        @Override
-        public String toString() {
-            return asset;
-        }
-    }
-
-    protected enum CONDITIONS {
-
-        VENTA("venta"), ALQUILER("alquiler");
-
-        private String condition;
-
-        private CONDITIONS(String cString) {
-            condition = cString;
-        }
-
-        @Override
-        public String toString() {
-            return condition;
-        }
-
-    }
 
     private Integer getCurrentPage(HtmlPage page) {
         return Integer.valueOf(page.querySelector("div#MasterMC_ContentBlockHolder_grdpropspagination a[disabled]").asText());
@@ -130,9 +50,7 @@ class MancroCrawlerHU {
         return node.asText();
     }
 
-    //TODO: get all details
     private Property getPropertyDetails(HtmlPage page) {
-
         Property property = new Property();
         property.setPriceSell(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp1 span"));
         property.setDescription(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblProse"));
@@ -297,8 +215,8 @@ class MancroCrawlerHU {
     final List<ZONES> zonesIgnoreList = new ArrayList<>();
     final List<ASSETS> assestsIgnoreList = new ArrayList<>();
     final List<CONDITIONS> conditionsIgnoreList = new ArrayList<>();
-    
-    private void fillIgnoreList(){
+
+    private void fillIgnoreList() {
         Collections.addAll(zonesIgnoreList, ZONES.values());
         zonesIgnoreList.remove(ZONES.TEN);
         Collections.addAll(assestsIgnoreList, ASSETS.values());
@@ -308,7 +226,6 @@ class MancroCrawlerHU {
     }
 
     public void crawl() {
-        
         //fillIgnoreList();
         final String baseUrl = "http://mancro.com/";
 
