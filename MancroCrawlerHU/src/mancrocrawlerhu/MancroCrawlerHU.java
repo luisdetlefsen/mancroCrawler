@@ -26,6 +26,8 @@ import org.apache.logging.log4j.LogManager;
 
 /**
  *
+ * To run it: java -Dlog4j.configurationFile=log4j2.xml -jar MancroCrawlerHU.jar
+ *
  * @author luisdetlefsen
  */
 class MancroCrawlerHU {
@@ -34,6 +36,10 @@ class MancroCrawlerHU {
     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("WebScraper");
     private String outputBasePath = "~/";
     private String archiveBasePath = "~/";
+    private final List<ZONES> zonesIgnoreList = new ArrayList<>();
+    private final List<ASSETS> assestsIgnoreList = new ArrayList<>();
+    private final List<CONDITIONS> conditionsIgnoreList = new ArrayList<>();
+
 
     private Integer getCurrentPage(HtmlPage page) {
         return Integer.valueOf(page.querySelector("div#MasterMC_ContentBlockHolder_grdpropspagination a[disabled]").asText());
@@ -227,10 +233,6 @@ class MancroCrawlerHU {
         }
 
     }
-
-    final List<ZONES> zonesIgnoreList = new ArrayList<>();
-    final List<ASSETS> assestsIgnoreList = new ArrayList<>();
-    final List<CONDITIONS> conditionsIgnoreList = new ArrayList<>();
 
     private void fillIgnoreList() {
         Collections.addAll(zonesIgnoreList, ZONES.values());
