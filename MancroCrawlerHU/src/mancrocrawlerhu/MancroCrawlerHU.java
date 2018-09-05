@@ -27,6 +27,7 @@ import org.apache.logging.log4j.LogManager;
 /**
  *
  * To run it: java -Dlog4j.configurationFile=log4j2.xml -jar MancroCrawlerHU.jar
+ * -output=<path output> -archive=<archive path>
  *
  * @author luisdetlefsen
  */
@@ -34,8 +35,8 @@ class MancroCrawlerHU {
 
     boolean debug = true;
     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("WebScraper");
-    private String outputBasePath = "~/";
-    private String archiveBasePath = "~/";
+    public String outputBasePath = "~/";
+    public String archiveBasePath = "~/";
     private final List<ZONES> zonesIgnoreList = new ArrayList<>();
     private final List<ASSETS> assestsIgnoreList = new ArrayList<>();
     private final List<CONDITIONS> conditionsIgnoreList = new ArrayList<>();
@@ -84,13 +85,13 @@ class MancroCrawlerHU {
         final Set<String> savedProperties = new HashSet<>();
         final String fileName = archiveBasePath + asset + "_" + condition + "_" + zone + ".csv";
         if (!Files.exists(Paths.get(fileName))) {
-            log.info("File does not exist, skipping it. " + fileName);
+            log.info("Archive file does not exist, skipping it. " + fileName);
             return savedProperties;
         }
         try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
             stream.forEach(x -> savedProperties.add(x.split(",")[0]));
         } catch (IOException e) {
-            log.error("Error getting saved properties from " + fileName);
+            log.error("Error getting saved properties from archive " + fileName);
             log.error(e.getMessage());
         }
         return savedProperties;
@@ -229,7 +230,7 @@ class MancroCrawlerHU {
             }
 
         } catch (Exception e) {
-            log.error("Error: " + e.getMessage());
+            log.error("Error while writing to file " + outputFilePath + " | " + e.getMessage());
         }
 
     }
@@ -269,6 +270,7 @@ class MancroCrawlerHU {
                     try {
                         crawlCategory(url, outputBasePath + fileName, zone, asset, condition);
                     } catch (Exception e) {
+                        log.error("Error while crawling url " + url);
                         log.error(e.getMessage());
                     }
                 }
@@ -282,10 +284,27 @@ class MancroCrawlerHU {
     public static void main(String[] args) {
         log.info("Starting");
 
+
         MancroCrawlerHU crawler = new MancroCrawlerHU();
 
+        if (args.length > 1) {
+            for (int i = 0; i < args.length; i++) {
+                if (args[i].startsWith("-output")) {
+                    crawler.outputBasePath = args[i].split("=")[1];
+                    log.info("Setting output path to " + args[i].split("=")[1]);
+                    continue;
+                }
+                if (args[i].startsWith("-archive")) {
+                    crawler.archiveBasePath = args[i].split("=")[1];
+                    log.info("Setting archive path to " + args[i].split("=")[1]);
+                    continue;
+                }
+            }
+
+        }
+
         crawler.crawl();
-        log.info("Completed");
+        log.info("Completed getting all properties.");
     }
 
 }
