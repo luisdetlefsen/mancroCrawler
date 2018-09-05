@@ -1,10 +1,5 @@
 package mancrocrawlerhu;
 
-import enums.CONDITIONS;
-import enums.ZONES;
-import enums.TOWNS;
-import enums.DEPARTMENTS;
-import enums.ASSETS;
 import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
 import com.gargoylesoftware.htmlunit.WebClient;
@@ -12,13 +7,21 @@ import com.gargoylesoftware.htmlunit.html.DomNode;
 import com.gargoylesoftware.htmlunit.html.DomNodeList;
 import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import enums.ASSETS;
+import enums.CONDITIONS;
+import enums.DEPARTMENTS;
+import enums.TOWNS;
+import enums.ZONES;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 
 /**
@@ -27,8 +30,10 @@ import org.apache.logging.log4j.LogManager;
  */
 class MancroCrawlerHU {
 
-    boolean debug = false;
+    boolean debug = true;
     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("WebScraper");
+    private String outputBasePath = "~/";
+    private String archiveBasePath = "~/";
 
     private Integer getCurrentPage(HtmlPage page) {
         return Integer.valueOf(page.querySelector("div#MasterMC_ContentBlockHolder_grdpropspagination a[disabled]").asText());
@@ -69,11 +74,28 @@ class MancroCrawlerHU {
         return property;
     }
 
-    private List<Property> getAllProperties(final String url) throws IOException {
+    private Set<String> getSavedProperties(final ZONES zone, final ASSETS asset, final CONDITIONS condition) {
+        final Set<String> savedProperties = new HashSet<>();
+        final String fileName = archiveBasePath + asset + "_" + condition + "_" + zone + ".csv";
+        if (!Files.exists(Paths.get(fileName))) {
+            log.info("File does not exist, skipping it. " + fileName);
+            return savedProperties;
+        }
+        try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
+            stream.forEach(x -> savedProperties.add(x.split(",")[0]));
+        } catch (IOException e) {
+            log.error("Error getting saved properties from " + fileName);
+            log.error(e.getMessage());
+        }
+        return savedProperties;
+    }
+
+    private List<Property> getAllProperties(final String url, final ZONES zone, final ASSETS asset, final CONDITIONS condition) throws IOException {
         WebClient webClient = getNewWebClient();
         HtmlPage wholePage = webClient.getPage(url);
         final List<Property> properties = new ArrayList<>();
 
+        Set<String> propertiesScrappedPreviously = getSavedProperties(zone, asset, condition);
         log.info("-------------------------------");
         HtmlAnchor nextPageAnchor;
         int c = 1;
@@ -89,6 +111,13 @@ class MancroCrawlerHU {
             int j = 1;
             for (DomNode node : propertiesLinks) {
                 log.info("Visiting property #" + (j + ((c - 1) * 25)) + ": " + ((HtmlAnchor) node).asText());
+                final String propertyUrl = ((HtmlAnchor) node).getHrefAttribute();
+                final String mancroId = propertyUrl.substring(propertyUrl.lastIndexOf("/"));
+                if (propertiesScrappedPreviously.contains(mancroId)) {
+                    log.info("Skipping property id " + mancroId + " since it was scraped previously");
+                    continue;
+                }
+
                 if (debug) {
                     break;
                 }
@@ -176,22 +205,9 @@ class MancroCrawlerHU {
         return webClient;
     }
 
-    private List<Property> getPropertiesByCategory(final String url) throws Exception {
-        try {
-            List<Property> properties = getAllProperties(url);
-
-            return properties;
-        } catch (Exception e) {
-            log.error("Error: " + e.getMessage());
-            throw e;
-        } finally {
-
-        }
-    }
-
     public void crawlCategory(final String url, final String outputFilePath, final ZONES zone, final ASSETS asset, final CONDITIONS condition) throws Exception {
         log.info("Visiting " + url);
-        final List<Property> properties = getPropertiesByCategory(url);
+        final List<Property> properties = getAllProperties(url, zone, asset, condition);
 
         log.info("Retrieved " + properties.size() + " properties from " + url);
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
@@ -228,6 +244,9 @@ class MancroCrawlerHU {
     public void crawl() {
         //fillIgnoreList();
         final String baseUrl = "http://mancro.com/";
+        if (debug) {
+            log.info("Running in debug mode.");
+        }
 
         //String url = baseUrl + ASSETS.CASAS.toString() + "-en-" + CONDITIONS.ALQUILER + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + ZONES.TEN;
         for (ASSETS asset : ASSETS.values()) {
@@ -244,11 +263,9 @@ class MancroCrawlerHU {
                     }
 
                     final String url = baseUrl + asset + "-en-" + condition + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + zone;
-//                    final String outputFilePath = "D:\\mancro\\";
-                    final String outputFilePath = "~/";
                     final String fileName = asset + "_" + condition + "_" + zone + ".csv";
                     try {
-                        crawlCategory(url, outputFilePath + fileName, zone, asset, condition);
+                        crawlCategory(url, outputBasePath + fileName, zone, asset, condition);
                     } catch (Exception e) {
                         log.error(e.getMessage());
                     }
