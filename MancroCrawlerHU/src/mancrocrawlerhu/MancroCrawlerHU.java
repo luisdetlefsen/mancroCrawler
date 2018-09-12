@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
+import static util.Utils.scrubConstructionArea;
+import static util.Utils.scrubNumber;
+import static util.Utils.scrubString;
 
 /**
  *
@@ -33,7 +36,7 @@ import org.apache.logging.log4j.LogManager;
  */
 class MancroCrawlerHU {
 
-    boolean debug = true;
+    boolean debug = false;
     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("WebScraper");
     public String outputBasePath = "~/";
     public String archiveBasePath = "~/";
@@ -64,19 +67,19 @@ class MancroCrawlerHU {
 
     private Property getPropertyDetails(HtmlPage page) {
         Property property = new Property();
-        property.setPriceSell(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp1 span"));
-        property.setDescription(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblProse"));
+        property.setPriceSell(scrubNumber(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp1 span")));
+        property.setDescription(scrubString(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblProse")));
         property.setMancroId(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblCode"));
         property.setLastEdit(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblAdMod"));
-        property.setVisits(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblCount3"));
-        property.setPriceRent(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp2 span"));
+        property.setVisits(scrubNumber(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblCount3")));
+        property.setPriceRent(scrubNumber(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp2 span")));
         property.setRooms(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblBed"));
         property.setBathrooms(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblBath"));
-        property.setTerrain(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblLA span"));
-        property.setConstruction(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblCA span"));
+        property.setTerrain(scrubConstructionArea(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblLA span")));
+        property.setConstruction(scrubConstructionArea(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblCA span")));
         property.setParking(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblPark"));
         property.setNewOrUsed(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblNew"));
-        property.setAddress(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblAdrProp"));
+        property.setAddress(scrubString(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblAdrProp")));
 
         return property;
     }
@@ -291,11 +294,15 @@ class MancroCrawlerHU {
             for (int i = 0; i < args.length; i++) {
                 if (args[i].startsWith("-output")) {
                     crawler.outputBasePath = args[i].split("=")[1];
+                    if (!crawler.outputBasePath.endsWith("/"))
+                        crawler.outputBasePath += "/";
                     log.info("Setting output path to " + args[i].split("=")[1]);
                     continue;
                 }
                 if (args[i].startsWith("-archive")) {
                     crawler.archiveBasePath = args[i].split("=")[1];
+                    if (!crawler.archiveBasePath.endsWith("/"))
+                        crawler.outputBasePath += "/";
                     log.info("Setting archive path to " + args[i].split("=")[1]);
                     continue;
                 }

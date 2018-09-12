@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
     <Properties>
-        <Property name="basePath">/Users/luisdetlefsen/logs</Property>
+        <Property name="basePath">D:/logs</Property>
     </Properties>
  
     <Appenders>
