@@ -16,6 +16,8 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -30,19 +32,25 @@ import static util.Utils.scrubString;
 /**
  *
  * To run it: java -Dlog4j.configurationFile=log4j2.xml -jar MancroCrawlerHU.jar
- * -output=D:/mancro/ -archive=D:/mancro_archive/ * -output=<path output> -archive=<archive path>
+ * -output=D:/mancro/ -archive=D:/mancro_archive/ -includeHeaders
+ *
+ * Headers: mancroId, precioVenta, precioRenta, ultimaEdicion, visitas,
+ * habitaciones, banos, terreno, construccion, parqueo, condicion, zona,
+ * tipo,proposito,direccion,descripcion
  *
  * @author luisdetlefsen
  */
 class MancroCrawlerHU {
 
+    boolean includeHeaders = false;
     boolean debug = false;
     private static final org.apache.logging.log4j.Logger log = LogManager.getLogger("WebScraper");
     public String outputBasePath = "~/";
-    public String archiveBasePath = "~/";
+    public String archiveFilePath = "~/";
     private final List<ZONES> zonesIgnoreList = new ArrayList<>();
     private final List<ASSETS> assestsIgnoreList = new ArrayList<>();
     private final List<CONDITIONS> conditionsIgnoreList = new ArrayList<>();
+    private Set<String> propertiesScrappedPreviously = null;
 
 
     private Integer getCurrentPage(HtmlPage page) {
@@ -84,23 +92,23 @@ class MancroCrawlerHU {
         return property;
     }
 
-    private Set<String> getSavedProperties(final ZONES zone, final ASSETS asset, final CONDITIONS condition) {
+    private Set<String> getSavedProperties() {
         final Set<String> savedProperties = new HashSet<>();
-        final String fileName = archiveBasePath + asset + "_" + condition + "_" + zone + ".csv";
-        log.info("Reading file: " + fileName);
-        if (!Files.exists(Paths.get(fileName))) {
-            log.info("Archive file does not exist, skipping it. " + fileName);
+
+        log.info("Reading file: " + archiveFilePath);
+        if (!Files.exists(Paths.get(archiveFilePath))) {
+            log.info("Archive file does not exist, skipping it. " + archiveFilePath);
             return savedProperties;
         }
-        try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
+        try (Stream<String> stream = Files.lines(Paths.get(archiveFilePath))) {
             stream.forEach(x -> savedProperties.add(x.split(",")[0]));
         } catch (IOException e) {
-            log.error("Error getting saved properties from archive " + fileName);
+            log.error("Error getting saved properties from archive " + archiveFilePath);
             log.error(e.getMessage());
         }
       //  for (String s : savedProperties.toArray(new String[0]))
         //      log.info(s);
-        log.info("Retrieved " + savedProperties.size() + " saved properties from " + fileName);
+        log.info("Retrieved " + savedProperties.size() + " saved properties from " + archiveFilePath);
         return savedProperties;
     }
 
@@ -109,7 +117,6 @@ class MancroCrawlerHU {
         HtmlPage wholePage = webClient.getPage(url);
         final List<Property> properties = new ArrayList<>();
 
-        Set<String> propertiesScrappedPreviously = getSavedProperties(zone, asset, condition);
         log.info("-------------------------------");
         HtmlAnchor nextPageAnchor;
         int c = 1;
@@ -127,9 +134,9 @@ class MancroCrawlerHU {
                 log.info("Visiting property #" + (j + ((c - 1) * 25)) + ": " + ((HtmlAnchor) node).asText());
                 final String propertyUrl = ((HtmlAnchor) node).getHrefAttribute();
                 final String mancroId = propertyUrl.substring(propertyUrl.lastIndexOf("/") + 1);
-                log.info("Searching id in archive: " + mancroId);
+                log.trace("Searching id in archive: " + mancroId);
                 if (propertiesScrappedPreviously.contains(mancroId)) {
-                    log.info("Skipping property id " + mancroId + " since it was scraped previously");
+                    log.trace("Skipping property id " + mancroId + " since it was scraped previously");
                     continue;
                 }
 
@@ -225,10 +232,16 @@ class MancroCrawlerHU {
         final List<Property> properties = getAllProperties(url, zone, asset, condition);
 
         log.info("Retrieved " + properties.size() + " properties from " + url);
+        if (properties.size() == 0)
+            return;
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
-            writer.write(Property.getHeadersCSV());
-            writer.newLine();
+            if (includeHeaders) {
+                writer.write(Property.getHeadersCSV());
+                writer.newLine();
+            }
             for (Property p : properties) {
+                if (p.getMancroId().isEmpty())
+                    continue;
                 p.setZone(zone);
                 p.setAsset(asset);
                 p.setCondition(condition);
@@ -255,9 +268,10 @@ class MancroCrawlerHU {
     public void crawl() {
         //fillIgnoreList();
         final String baseUrl = "http://mancro.com/";
-        if (debug) {
+        if (debug) 
             log.info("Running in debug mode.");
-        }
+
+        propertiesScrappedPreviously = getSavedProperties();
 
         //String url = baseUrl + ASSETS.CASAS.toString() + "-en-" + CONDITIONS.ALQUILER + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + ZONES.TEN;
         for (ASSETS asset : ASSETS.values()) {
@@ -290,10 +304,11 @@ class MancroCrawlerHU {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+        final LocalDate startTime = LocalDate.now();
+
         log.info("Starting");
 
-
-        MancroCrawlerHU crawler = new MancroCrawlerHU();
+        final MancroCrawlerHU crawler = new MancroCrawlerHU();
 
         if (args.length > 1) {
             for (int i = 0; i < args.length; i++) {
@@ -306,18 +321,22 @@ class MancroCrawlerHU {
                     continue;
                 }
                 if (args[i].startsWith("-archive")) {
-                    crawler.archiveBasePath = args[i].split("=")[1];
-                    if (!crawler.archiveBasePath.endsWith("/"))
-                        crawler.outputBasePath += "/";
-                    log.info("Setting archive path to " + args[i].split("=")[1]);
+                    crawler.archiveFilePath = args[i].split("=")[1];
+                    log.info("Setting archive file path to " + args[i].split("=")[1]);
+                    continue;
+                }
+                if (args[i].startsWith("-includeHeaders")) {
+                    crawler.includeHeaders = true;
                     continue;
                 }
             }
-
         }
 
         crawler.crawl();
-        log.info("Completed getting all properties.");
+        final LocalDate endTime = LocalDate.now();
+        final Duration duration = Duration.between(startTime, endTime);
+
+        log.info("Completed getting all properties in " + duration);
     }
 
 }
