@@ -30,7 +30,7 @@ import static util.Utils.scrubString;
 /**
  *
  * To run it: java -Dlog4j.configurationFile=log4j2.xml -jar MancroCrawlerHU.jar
- * -output=<path output> -archive=<archive path>
+ * -output=D:/mancro/ -archive=D:/mancro_archive/ * -output=<path output> -archive=<archive path>
  *
  * @author luisdetlefsen
  */
@@ -87,6 +87,7 @@ class MancroCrawlerHU {
     private Set<String> getSavedProperties(final ZONES zone, final ASSETS asset, final CONDITIONS condition) {
         final Set<String> savedProperties = new HashSet<>();
         final String fileName = archiveBasePath + asset + "_" + condition + "_" + zone + ".csv";
+        log.info("Reading file: " + fileName);
         if (!Files.exists(Paths.get(fileName))) {
             log.info("Archive file does not exist, skipping it. " + fileName);
             return savedProperties;
@@ -97,6 +98,9 @@ class MancroCrawlerHU {
             log.error("Error getting saved properties from archive " + fileName);
             log.error(e.getMessage());
         }
+      //  for (String s : savedProperties.toArray(new String[0]))
+        //      log.info(s);
+        log.info("Retrieved " + savedProperties.size() + " saved properties from " + fileName);
         return savedProperties;
     }
 
@@ -122,7 +126,8 @@ class MancroCrawlerHU {
             for (DomNode node : propertiesLinks) {
                 log.info("Visiting property #" + (j + ((c - 1) * 25)) + ": " + ((HtmlAnchor) node).asText());
                 final String propertyUrl = ((HtmlAnchor) node).getHrefAttribute();
-                final String mancroId = propertyUrl.substring(propertyUrl.lastIndexOf("/"));
+                final String mancroId = propertyUrl.substring(propertyUrl.lastIndexOf("/") + 1);
+                log.info("Searching id in archive: " + mancroId);
                 if (propertiesScrappedPreviously.contains(mancroId)) {
                     log.info("Skipping property id " + mancroId + " since it was scraped previously");
                     continue;
@@ -292,6 +297,7 @@ class MancroCrawlerHU {
 
         if (args.length > 1) {
             for (int i = 0; i < args.length; i++) {
+                log.info("Parameter: " + args[i]);
                 if (args[i].startsWith("-output")) {
                     crawler.outputBasePath = args[i].split("=")[1];
                     if (!crawler.outputBasePath.endsWith("/"))
