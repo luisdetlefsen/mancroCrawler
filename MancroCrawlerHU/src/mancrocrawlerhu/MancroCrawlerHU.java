@@ -135,6 +135,7 @@ class MancroCrawlerHU {
                 final String propertyUrl = ((HtmlAnchor) node).getHrefAttribute();
                 final String mancroId = propertyUrl.substring(propertyUrl.lastIndexOf("/") + 1);
                 log.trace("Searching id in archive: " + mancroId);
+                j++;
                 if (propertiesScrappedPreviously.contains(mancroId)) {
                     log.trace("Skipping property id " + mancroId + " since it was scraped previously");
                     continue;
@@ -145,8 +146,7 @@ class MancroCrawlerHU {
                 }
                 HtmlPage propertyPage = ((HtmlAnchor) node).click();
                 Property property = getPropertyDetails(propertyPage);
-                properties.add(property);
-                j++;
+                properties.add(property);                
             }
 
             //start retrieving the next page
