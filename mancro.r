@@ -38,3 +38,12 @@ yconf <- list(
   title = "Precio venta (USD)"
 )
 plot_ly(properties, x = ~zona, y = ~precioVenta , type="scatter", mode="markers" , marker=list(color="purple" , size=20 , opacity=0.5)  ) %>%layout(xaxis = xconf, yaxis = yconf)
+
+
+#Graph 3
+library(tidyverse)
+library(plotly)
+
+# Scatterplot (usar mancroId en vez de visitas para poder mostrar el id)
+p=ggplot(properties, aes(x=zona, y=precioVenta, color=visitas, shape=condicion)) + geom_point(size=10, alpha=0.1)
+ggplotly(p)
