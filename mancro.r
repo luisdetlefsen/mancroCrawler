@@ -11,14 +11,11 @@ str(properties$precioRenta)
 
 summary(properties$precioRenta)
 
-
+#Graph 1
 ggplot(properties, aes(properties$zona, properties$precioVenta)) + geom_point()
 
 
-
-
-
-
+#Graph 2
 library(plotly)
 
 xconf <- list(

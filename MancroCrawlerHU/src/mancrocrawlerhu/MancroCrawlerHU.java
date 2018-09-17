@@ -31,7 +31,8 @@ import static util.Utils.scrubString;
 
 /**
  *
- * To run it: java -Dlog4j.configurationFile=log4j2.xml -jar MancroCrawlerHU.jar
+ * To run it: java -Xms8g -Xmx8g -XX: +UseG1GC
+ * -Dlog4j.configurationFile=log4j2.xml -jar MancroCrawlerHU.jar
  * -output=D:/mancro/ -archive=D:/mancro_archive/ -includeHeaders
  *
  * Headers: mancroId, precioVenta, precioRenta, ultimaEdicion, visitas,
@@ -256,17 +257,49 @@ class MancroCrawlerHU {
 
     }
 
-    private void fillIgnoreList() {
-        Collections.addAll(zonesIgnoreList, ZONES.values());
-        zonesIgnoreList.remove(ZONES.TEN);
+    private void fillAssestsWhiteList() {
         Collections.addAll(assestsIgnoreList, ASSETS.values());
         assestsIgnoreList.remove(ASSETS.CASAS);
+        assestsIgnoreList.remove(ASSETS.APARTEMENTOS);
+    }
+
+    private void fillConditionsWhiteList() {
         Collections.addAll(conditionsIgnoreList, CONDITIONS.values());
+        conditionsIgnoreList.remove(CONDITIONS.VENTA);
         conditionsIgnoreList.remove(CONDITIONS.ALQUILER);
     }
 
+    private void fillZonesWhiteList() {
+        Collections.addAll(zonesIgnoreList, ZONES.values());
+        zonesIgnoreList.remove(ZONES.ONE);
+        zonesIgnoreList.remove(ZONES.TWO);
+        zonesIgnoreList.remove(ZONES.THREE);
+        zonesIgnoreList.remove(ZONES.FOUR);
+        zonesIgnoreList.remove(ZONES.FIVE);
+        zonesIgnoreList.remove(ZONES.SIX);
+        zonesIgnoreList.remove(ZONES.SEVEN);
+        zonesIgnoreList.remove(ZONES.EIGHT);
+        zonesIgnoreList.remove(ZONES.NINE);
+        zonesIgnoreList.remove(ZONES.TEN);
+        zonesIgnoreList.remove(ZONES.ELEVEN);
+        zonesIgnoreList.remove(ZONES.TWELVE);
+        zonesIgnoreList.remove(ZONES.THIRTEEN);
+        zonesIgnoreList.remove(ZONES.FOURTEEN);
+        zonesIgnoreList.remove(ZONES.FIFTEEN);
+        zonesIgnoreList.remove(ZONES.SIXTEEN);
+        zonesIgnoreList.remove(ZONES.SEVENTEEN);
+        zonesIgnoreList.remove(ZONES.EIGHTEEN);
+        zonesIgnoreList.remove(ZONES.TWENTYONE);
+    }
+
+    private void fillWhileList() {
+        //fillAssestsWhiteList();
+        //fillConditionsWhiteList();
+        fillZonesWhiteList();
+    }
+
     public void crawl() {
-        //fillIgnoreList();
+        fillWhileList();
         final String baseUrl = "http://mancro.com/";
         if (debug) 
             log.info("Running in debug mode.");
@@ -278,12 +311,15 @@ class MancroCrawlerHU {
             for (CONDITIONS condition : CONDITIONS.values()) {
                 for (ZONES zone : ZONES.values()) {
                     if (zonesIgnoreList.contains(zone)) {
+                        log.warn("Ignoring zone: " + zone);
                         continue;
                     }
                     if (assestsIgnoreList.contains(asset)) {
+                        log.warn("Ignoring: " + asset);
                         continue;
                     }
                     if (conditionsIgnoreList.contains(condition)) {
+                        log.warn("Ignoring: " + condition);
                         continue;
                     }
 
@@ -312,7 +348,7 @@ class MancroCrawlerHU {
 
         if (args.length > 1) {
             for (int i = 0; i < args.length; i++) {
-                log.info("Parameter: " + args[i]);
+                // log.info("Parameter: " + args[i]);
                 if (args[i].startsWith("-output")) {
                     crawler.outputBasePath = args[i].split("=")[1];
                     if (!crawler.outputBasePath.endsWith("/"))
