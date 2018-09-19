@@ -6,12 +6,34 @@ setwd("D:/mancro_archive")
 properties <- read.csv("mancro.csv")
 
 colnames(properties) <- c("mancroId", "precioVenta", "precioRenta", "ultimaEdicion", "visitas","habitaciones", "banos", "terreno", "construccion", "parqueo", "condicion", "zona","tipo","proposito","direccion","descripcion")
+
+dim(properties)
 str(properties$precioRenta)
 
+#Levels of a factor
+levels(properties$proposito)
+
+#Filter properties by sale/rent
+venta <- properties[properties$proposito=="venta", ]
+
+alquiler <- properties[properties$proposito=="alquiler", ]
 
 summary(properties$precioRenta)
 
+
+library(dplyr)
+ alquiler<-dplyr::filter(properties, grepl("alquiler", proposito))
+> venta<-dplyr::filter(properties, grepl("venta", proposito))
+
+
+#No tomar en cuenta propiedades que tienen el alquiler mayor a 4 veces la mediana.
+ median(alquiler$precioRenta, na.rm = TRUE)
+alquilerLimpio <- alquiler[alquiler$precioRenta <= 4*median(alquiler$precioRenta,na.rm=TRUE),]
+ ggplot(alquilerLimpio, aes(alquilerLimpio$zona, alquilerLimpio$precioRenta)) + geom_point()
+
+
 #Graph 1
+ library(ggplot2)
 ggplot(properties, aes(properties$zona, properties$precioVenta)) + geom_point()
 
 
