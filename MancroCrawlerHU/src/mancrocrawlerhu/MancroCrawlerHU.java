@@ -122,6 +122,7 @@ class MancroCrawlerHU {
         HtmlAnchor nextPageAnchor;
         int c = 1;
         do {
+            log.trace("Iterating");
             if (c != getCurrentPage(wholePage)) {
                 log.error("Error while visiting " + url);
                 log.error("Error: Expected page " + c + " but got " + getCurrentPage(wholePage));
@@ -142,10 +143,12 @@ class MancroCrawlerHU {
                     continue;
                 }
 
-                if (debug) {
+                if (debug) 
                     break;
-                }
+
+                log.trace("Click " + ((HtmlAnchor) node).getHrefAttribute());
                 HtmlPage propertyPage = ((HtmlAnchor) node).click();
+                log.trace("Retrieved data sucessfully");
                 Property property = getPropertyDetails(propertyPage);
                 properties.add(property);                
             }
@@ -246,7 +249,7 @@ class MancroCrawlerHU {
                 p.setZone(zone);
                 p.setAsset(asset);
                 p.setCondition(condition);
-
+                scrubProperty(p);
                 writer.write(p.toCsvLine());
                 writer.newLine();
             }
@@ -255,6 +258,16 @@ class MancroCrawlerHU {
             log.error("Error while writing to file " + outputFilePath + " | " + e.getMessage());
         }
 
+    }
+
+    public void scrubProperty(Property p) {
+        if (p.getCondition() == CONDITIONS.ALQUILER) {
+            if ((p.getPriceRent() == null || p.getPriceRent().isEmpty()) && (p.getPriceSell() != null && !p.getPriceSell().isEmpty())) {
+                p.setPriceRent(p.getPriceSell());
+                p.setPriceSell("");
+            }
+                
+        }
     }
 
     private void fillAssestsWhiteList() {
@@ -293,8 +306,8 @@ class MancroCrawlerHU {
     }
 
     private void fillWhileList() {
-        //fillAssestsWhiteList();
-        //fillConditionsWhiteList();
+        fillAssestsWhiteList();
+        fillConditionsWhiteList();
         fillZonesWhiteList();
     }
 
