@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import static util.Utils.scrubConstructionArea;
@@ -344,6 +345,14 @@ class MancroCrawlerHU {
                         log.error("Error while crawling url " + url);
                         log.error(e.getMessage());
                     }
+                    log.info("Pausing for 10 minutes...");
+                    try {
+                        TimeUnit.MINUTES.sleep(10);
+                    } catch (InterruptedException ex) {
+                        log.error("Pause interrupted");
+                        log.error(ex.getLocalizedMessage());
+                    }
+                    log.info("Continue");
                 }
             }
         }
