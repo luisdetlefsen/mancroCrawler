@@ -6,6 +6,9 @@
 
 package util;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 /**
  *
  * @author luis detlefsen
@@ -22,6 +25,10 @@ public class Utils {
 
     public static String scrubString(String s) {
         return s.replaceAll("\"", "");
+    }
+
+    public static String toRDate(String s) {
+        return LocalDate.parse(s, DateTimeFormatter.ofPattern("d/M/yyyy")).format(DateTimeFormatter.ISO_DATE);
     }
 
 }

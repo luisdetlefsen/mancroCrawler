@@ -78,4 +78,28 @@ public class UtilsTest {
         assertEquals(expResult, result);
     }
 
+    @Test
+    public void testRDate() {
+        String date = "26/09/2017";
+        String expectedResult = "2017-09-26";
+        String result = Utils.toRDate(date);
+        assertEquals(expectedResult, result);
+    }
+
+    @Test
+    public void testRDate2() {
+        String date = "6/9/2017";
+        String expectedResult = "2017-09-06";
+        String result = Utils.toRDate(date);
+        assertEquals(expectedResult, result);
+    }
+
+    @Test
+    public void testRDate3() {
+        String date = "20/9/2018";
+        String expectedResult = "2018-09-20";
+        String result = Utils.toRDate(date);
+        assertEquals(expectedResult, result);
+    }
+
 }
