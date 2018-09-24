@@ -56,7 +56,6 @@ class MancroCrawlerHU {
     private final List<CONDITIONS> conditionsIgnoreList = new ArrayList<>();
     private Set<String> propertiesScrappedPreviously = null;
 
-
     private Integer getCurrentPage(HtmlPage page) {
         return Integer.valueOf(page.querySelector("div#MasterMC_ContentBlockHolder_grdpropspagination a[disabled]").asText());
     }
@@ -71,9 +70,8 @@ class MancroCrawlerHU {
 
     private String getPropertyField(HtmlPage page, String selector) {
         DomNode node = page.querySelector(selector);
-        if (node == null) {
+        if (node == null)
             return "";
-        }
         return node.asText();
     }
 
@@ -107,16 +105,16 @@ class MancroCrawlerHU {
         try (Stream<String> stream = Files.lines(Paths.get(archiveFilePath))) {
             stream.forEach(x -> savedProperties.add(x.split(",")[0]));
         } catch (IOException e) {
-            log.error("Error getting saved properties from archive " + archiveFilePath);
+            log.error("Error getting saved properties from archive " + archiveFilePath, e);
             log.error(e.getMessage());
         }
-      //  for (String s : savedProperties.toArray(new String[0]))
+        //  for (String s : savedProperties.toArray(new String[0]))
         //      log.info(s);
         log.info("Retrieved " + savedProperties.size() + " saved properties from " + archiveFilePath);
         return savedProperties;
     }
 
-    private List<Property> getAllProperties(final String url, final ZONES zone, final ASSETS asset, final CONDITIONS condition) throws IOException {
+    private List<Property> getAllProperties(final String url, final ZONES zone, final ASSETS asset, final CONDITIONS condition, final String outputFilePath) throws IOException {
         WebClient webClient = getNewWebClient();
         HtmlPage wholePage = webClient.getPage(url);
         final List<Property> properties = new ArrayList<>();
@@ -146,14 +144,32 @@ class MancroCrawlerHU {
                     continue;
                 }
 
-                if (debug) 
+                if (debug)
                     break;
 
                 log.trace("Click " + ((HtmlAnchor) node).getHrefAttribute());
                 HtmlPage propertyPage = ((HtmlAnchor) node).click();
                 log.trace("Retrieved data sucessfully");
                 Property property = getPropertyDetails(propertyPage);
-                properties.add(property);                
+
+                property.setZone(zone);
+                property.setAsset(asset);
+                property.setCondition(condition);
+                scrubProperty(property);
+
+                properties.add(property);
+
+                try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath + "_" + property.getMancroId() + ".csv"))) {
+                    if (includeHeaders) {
+                        writer.write(Property.getHeadersCSV());
+                        writer.newLine();
+                    }
+
+                    writer.write(property.toCsvLine());
+                    writer.newLine();
+                } catch (Exception e) {
+                    log.error("Error while writing to file " + outputFilePath + "_" + property.getMancroId() + ".csv" + " | " + e.getMessage(), e);
+                }
             }
 
             //start retrieving the next page
@@ -167,11 +183,11 @@ class MancroCrawlerHU {
                 wholePage = webClient.getPage(url);
 
                 String nextPageLink = "javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl%s$ctl00','')";
-                if (c < 10) {
+                if (c < 10)
                     nextPageLink = String.format(nextPageLink, "0" + (c));
-                } else if (c == 10) {
+                else if (c == 10)
                     nextPageLink = String.format(nextPageLink, "10");
-                } else if (c > 10) {
+                else if (c > 10) {
                     int residue = (c + 1) % 10;
                     switch (residue) {
                         case 0:
@@ -185,30 +201,27 @@ class MancroCrawlerHU {
                     }
                 }
                 log.info("Next page link: " + nextPageLink);
-                if (c <= 10) {
+                if (c <= 10)
                     wholePage = (HtmlPage) wholePage.executeJavaScript(nextPageLink).getNewPage();
-                } else if (c >= 11 && c <= 20) {
+                else if (c >= 11 && c <= 20) {
                     wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
                     wholePage = (HtmlPage) wholePage.executeJavaScript(nextPageLink).getNewPage();
 
                 } else {
                     wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl10$ctl00','')").getNewPage();
                     int bound = 0;
-                    if (c > 30) {
+                    if (c > 30)
                         bound = c / 10;
-                    } else {
+                    else
                         bound = c / 20;
-                    }
-                    for (int i = 0; i < bound; i++) {
+                    for (int i = 0; i < bound; i++)
                         wholePage = (HtmlPage) wholePage.executeJavaScript("javascript:__doPostBack('MasterMC$ContentBlockHolder$rptPaging$ctl11$ctl00','')").getNewPage();
-                    }
                     wholePage = (HtmlPage) wholePage.executeJavaScript(nextPageLink).getNewPage();
                 }
 
             } else {
-                if (webClient != null) {
+                if (webClient != null)
                     webClient.close();
-                }
                 log.info("~~~~~~~~~~~~~~Completed~~~~~~~~~~~~");
                 break;
             }
@@ -237,44 +250,42 @@ class MancroCrawlerHU {
     public void crawlCategory(final String url, final String outputFilePath, final ZONES zone, final ASSETS asset, final CONDITIONS condition) throws Exception {
         log.info("Visiting " + url);
         final LocalDateTime startTime = LocalDateTime.now();
-        final List<Property> properties = getAllProperties(url, zone, asset, condition);
+        final List<Property> properties = getAllProperties(url, zone, asset, condition, outputFilePath);
 
         final LocalDateTime endTime = LocalDateTime.now();
         final Duration duration = Duration.between(startTime, endTime);
 
         log.info("Retrieved " + properties.size() + " properties from " + url + " in " + durationToString(duration));
-        if (properties.size() == 0)
-            return;
-        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
-            if (includeHeaders) {
-                writer.write(Property.getHeadersCSV());
-                writer.newLine();
-            }
-            for (Property p : properties) {
-                if (p.getMancroId().isEmpty())
-                    continue;
-                p.setZone(zone);
-                p.setAsset(asset);
-                p.setCondition(condition);
-                scrubProperty(p);
-                writer.write(p.toCsvLine());
-                writer.newLine();
-            }
-
-        } catch (Exception e) {
-            log.error("Error while writing to file " + outputFilePath + " | " + e.getMessage());
-        }
+//        if (properties.size() == 0)
+//            return;
+//        try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
+//            if (includeHeaders) {
+//                writer.write(Property.getHeadersCSV());
+//                writer.newLine();
+//            }
+//            for (Property p : properties) {
+//                if (p.getMancroId().isEmpty())
+//                    continue;
+//                ///  p.setZone(zone);
+////                p.setAsset(asset);
+////                p.setCondition(condition);
+////                scrubProperty(p);
+//                writer.write(p.toCsvLine());
+//                writer.newLine();
+//            }
+//
+//        } catch (Exception e) {
+//            log.error("Error while writing to file " + outputFilePath + " | " + e.getMessage());
+//        }
 
     }
 
     public void scrubProperty(Property p) {
-        if (p.getCondition() == CONDITIONS.ALQUILER) {
+        if (p.getCondition() == CONDITIONS.ALQUILER)
             if ((p.getPriceRent() == null || p.getPriceRent().isEmpty()) && (p.getPriceSell() != null && !p.getPriceSell().isEmpty())) {
                 p.setPriceRent(p.getPriceSell());
                 p.setPriceSell("");
             }
-                
-        }
     }
 
     private void fillAssestsWhiteList() {
@@ -321,14 +332,14 @@ class MancroCrawlerHU {
     public void crawl() {
         fillWhileList();
         final String baseUrl = "http://mancro.com/";
-        if (debug) 
+        if (debug)
             log.info("Running in debug mode.");
 
         propertiesScrappedPreviously = getSavedProperties();
 
         //String url = baseUrl + ASSETS.CASAS.toString() + "-en-" + CONDITIONS.ALQUILER + "/" + DEPARTMENTS.GUATEMALA + "/" + TOWNS.GUATEMALA + "/zona-" + ZONES.TEN;
-        for (ASSETS asset : ASSETS.values()) {
-            for (CONDITIONS condition : CONDITIONS.values()) {
+        for (ASSETS asset : ASSETS.values())
+            for (CONDITIONS condition : CONDITIONS.values())
                 for (ZONES zone : ZONES.values()) {
                     if (zonesIgnoreList.contains(zone)) {
                         log.warn("Ignoring zone: " + zone);
@@ -348,20 +359,18 @@ class MancroCrawlerHU {
                     try {
                         crawlCategory(url, outputBasePath + fileName, zone, asset, condition);
                     } catch (Exception e) {
-                        log.error("Error while crawling url " + url);
+                        log.error("Error while crawling url " + url, e);
                         log.error(e.getMessage());
                     }
                     log.info("Pausing for 10 minutes...");
                     try {
                         TimeUnit.MINUTES.sleep(10);
                     } catch (InterruptedException ex) {
-                        log.error("Pause interrupted");
+                        log.error("Pause interrupted", ex);
                         log.error(ex.getLocalizedMessage());
                     }
                     log.info("Continue");
                 }
-            }
-        }
     }
 
     /**
@@ -374,7 +383,7 @@ class MancroCrawlerHU {
 
         final MancroCrawlerHU crawler = new MancroCrawlerHU();
 
-        if (args.length > 1) {
+        if (args.length > 1)
             for (int i = 0; i < args.length; i++) {
                 // log.info("Parameter: " + args[i]);
                 if (args[i].startsWith("-output")) {
@@ -394,7 +403,6 @@ class MancroCrawlerHU {
                     continue;
                 }
             }
-        }
 
         crawler.crawl();
         final LocalDateTime endTime = LocalDateTime.now();
