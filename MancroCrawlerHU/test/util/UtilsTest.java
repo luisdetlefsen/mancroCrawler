@@ -5,6 +5,8 @@
  */
 package util;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import org.junit.After;
 import org.junit.AfterClass;
 import static org.junit.Assert.assertEquals;
@@ -102,4 +104,19 @@ public class UtilsTest {
         assertEquals(expectedResult, result);
     }
 
+    @Test
+    public void testDurationToString() {
+        Duration d = Duration.ofHours(2);
+        String expectedResult = "2 hours, 0 minutes, 0 seconds, 0 ms.";
+        String result = Utils.durationToString(d);
+        assertEquals(expectedResult, result);
+    }
+
+    @Test
+    public void testDurationToString2() {
+        Duration d = Duration.ZERO.plus(2, ChronoUnit.HOURS).plus(10, ChronoUnit.MINUTES).plus(15, ChronoUnit.SECONDS).plus(213, ChronoUnit.MILLIS);
+        String expectedResult = "2 hours, 10 minutes, 15 seconds, 213 ms.";
+        String result = Utils.durationToString(d);
+        assertEquals(expectedResult, result);
+    }
 }

@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
+import static util.Utils.durationToString;
 import static util.Utils.scrubConstructionArea;
 import static util.Utils.scrubNumber;
 import static util.Utils.scrubString;
@@ -235,13 +236,13 @@ class MancroCrawlerHU {
 
     public void crawlCategory(final String url, final String outputFilePath, final ZONES zone, final ASSETS asset, final CONDITIONS condition) throws Exception {
         log.info("Visiting " + url);
-        final LocalDate startTime = LocalDate.now();
+        final LocalDateTime startTime = LocalDateTime.now();
         final List<Property> properties = getAllProperties(url, zone, asset, condition);
 
-        final LocalDate endTime = LocalDate.now();
+        final LocalDateTime endTime = LocalDateTime.now();
         final Duration duration = Duration.between(startTime, endTime);
-        
-        log.info("Retrieved " + properties.size() + " properties from " + url + " in " + duration);
+
+        log.info("Retrieved " + properties.size() + " properties from " + url + " in " + durationToString(duration));
         if (properties.size() == 0)
             return;
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
@@ -367,7 +368,7 @@ class MancroCrawlerHU {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        final LocalDate startTime = LocalDate.now();
+        final LocalDateTime startTime = LocalDateTime.now();
 
         log.info("Starting");
 
@@ -396,10 +397,10 @@ class MancroCrawlerHU {
         }
 
         crawler.crawl();
-        final LocalDate endTime = LocalDate.now();
+        final LocalDateTime endTime = LocalDateTime.now();
         final Duration duration = Duration.between(startTime, endTime);
 
-        log.info("Completed getting all properties in " + duration);
+        log.info("Completed getting all properties in " + durationToString(duration));
     }
 
 }
