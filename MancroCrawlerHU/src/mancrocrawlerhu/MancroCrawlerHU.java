@@ -29,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import static util.Utils.scrubConstructionArea;
 import static util.Utils.scrubNumber;
 import static util.Utils.scrubString;
+import static util.Utils.toRDate;
 
 /**
  *
@@ -80,7 +81,7 @@ class MancroCrawlerHU {
         property.setPriceSell(scrubNumber(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp1 span")));
         property.setDescription(scrubString(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblProse")));
         property.setMancroId(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblCode"));
-        property.setLastEdit(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblAdMod"));
+        property.setLastEdit(toRDate(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblAdMod")));
         property.setVisits(scrubNumber(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblCount3")));
         property.setPriceRent(scrubNumber(getPropertyField(page, "span#MasterMC_ContentBlockHolder_lblOp2 span")));
         property.setRooms(getPropertyField(page, "#MasterMC_ContentBlockHolder_lblBed"));
@@ -234,9 +235,13 @@ class MancroCrawlerHU {
 
     public void crawlCategory(final String url, final String outputFilePath, final ZONES zone, final ASSETS asset, final CONDITIONS condition) throws Exception {
         log.info("Visiting " + url);
+        final LocalDate startTime = LocalDate.now();
         final List<Property> properties = getAllProperties(url, zone, asset, condition);
 
-        log.info("Retrieved " + properties.size() + " properties from " + url);
+        final LocalDate endTime = LocalDate.now();
+        final Duration duration = Duration.between(startTime, endTime);
+        
+        log.info("Retrieved " + properties.size() + " properties from " + url + " in " + duration);
         if (properties.size() == 0)
             return;
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputFilePath))) {
