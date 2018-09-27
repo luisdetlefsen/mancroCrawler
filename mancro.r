@@ -69,3 +69,41 @@ library(plotly)
 # Scatterplot (usar mancroId en vez de visitas para poder mostrar el id)
 p=ggplot(properties, aes(x=zona, y=precioVenta, color=visitas, shape=condicion)) + geom_point(size=10, alpha=0.1)
 ggplotly(p)
+
+
+
+
+
+#Word Cloud:
+#1. convert to chars
+alquilerLimpio$descripcion <- as.character(alquilerLimpio$descripcion)
+
+#Load text mining package
+library(tm)
+
+#Load snowballc package to reduce words to stems
+library(SnowballC)
+
+#convert descriptions to Corpus
+corpus <- Corpus(VectorSource(alquilerLimpio$descripcion))
+
+#convert terms to lower case
+corpus <- tm_map(corpus, tolower)
+
+#remove punctuation
+corpus <- tm_map(corpus, removePunctuation)
+
+#remove stop words
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+
+#reduce terms to stems in corpus
+#corpus <- tm_map(corpus, stemDocument, "spanish")
+
+corpus <- tm_map(corpus, stripWhitespace)
+
+#corpus <- tm_map(corpus, PlainTextDocument)
+
+library(wordcloud)
+
+wordcloud(corpus, scale=c(5,0.5), max.words=100, random.order=FALSE, rot.per=0.35, use.r.layout=FALSE, colors=brewer.pal(8, "Dark2"))
+#end wordcloud
